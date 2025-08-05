@@ -3,20 +3,36 @@ const nodemailer = require("nodemailer");
 require("dotenv").config(); // to load .env
 
 const createBatch = async (req, res) => {
-    const { batch_name, duration, center, teacher, course_id } = req.body;
+    const { duration, center, teacher, course_id, time_from, time_to } = req.body;
 
-    // Update required fields check
-    if (!batch_name || !duration || !center || !teacher || !course_id) {
+    if (!duration || !center || !teacher || !course_id || !time_from || !time_to) {
         return res.status(400).json({
-            error: "All fields are required: batch_name, duration, center, teacher, course_id"
+            error: "All fields are required: duration, center, teacher, course_id, time_from, time_to"
         });
     }
 
     try {
-        // First verify if the course exists
+        // 1. Get the latest batch_name to increment
+        const { data: lastBatch, error: fetchError } = await supabase
+            .from("batches")
+            .select("batch_name")
+            .like("batch_name", "B%")
+            .order("batch_name", { ascending: false })
+            .limit(1)
+            .single();
+
+        let newBatchNumber = 118; // default start
+        if (lastBatch && lastBatch.batch_name) {
+            const match = lastBatch.batch_name.match(/^B(\d+)/);
+            if (match) {
+                newBatchNumber = parseInt(match[1]) + 1;
+            }
+        }
+
+        // 2. Get course name
         const { data: courseExists, error: courseError } = await supabase
             .from("courses")
-            .select("id")
+            .select("course_name")
             .eq("id", course_id)
             .single();
 
@@ -24,7 +40,28 @@ const createBatch = async (req, res) => {
             return res.status(400).json({ error: "Invalid course ID" });
         }
 
-        // Create batch with updated fields
+        // 3. Construct batch_name
+        const courseName = courseExists.course_name.toUpperCase(); // Keep as it is
+        // Convert to AM/PM format
+        const formatToAmPm = (time) => {
+            const [hours, minutes] = time.split(':');
+            const date = new Date();
+            date.setHours(hours, minutes);
+            return date.toLocaleTimeString('en-US', {
+                hour: '2-digit',
+                minute: '2-digit',
+                hour12: true
+            }).replace(/\s/g, ''); // Remove space before AM/PM
+        };
+
+        const formattedFrom = formatToAmPm(time_from);
+        const formattedTo = formatToAmPm(time_to);
+
+        const batch_name = `B${newBatchNumber}-${courseName}-${formattedFrom}-${formattedTo}`;
+
+
+
+        // 4. Insert into batches
         const { data, error } = await supabase
             .from("batches")
             .insert([{
@@ -32,7 +69,9 @@ const createBatch = async (req, res) => {
                 duration,
                 center,
                 teacher,
-                course_id
+                course_id,
+                time_from,
+                time_to
             }])
             .select(`
                 *,
@@ -122,11 +161,11 @@ const getBatchById = async (req, res) => {
 
 const updateBatch = async (req, res) => {
     const { id } = req.params;
-    const { batch_name, duration, center, teacher, course_id } = req.body;
+    const { batch_name, duration, center, teacher, course_id, time_from, time_to } = req.body;
 
     const { data, error } = await supabase
         .from("batches")
-        .update({ batch_name, duration, center, teacher, course_id })
+        .update({ batch_name, duration, center, teacher, course_id, time_from, time_to })
         .eq("batch_id", id)
         .select();
 
