@@ -161,18 +161,69 @@ const getBatchById = async (req, res) => {
 
 const updateBatch = async (req, res) => {
     const { id } = req.params;
-    const { batch_name, duration, center, teacher, course_id, time_from, time_to } = req.body;
+    const { duration, center, teacher, course_id, time_from, time_to } = req.body;
 
-    const { data, error } = await supabase
-        .from("batches")
-        .update({ batch_name, duration, center, teacher, course_id, time_from, time_to })
-        .eq("batch_id", id)
-        .select();
+    try {
+        // 1. Get old batch to keep batch number
+        const { data: oldBatch, error: oldBatchError } = await supabase
+            .from("batches")
+            .select("batch_name")
+            .eq("batch_id", id)
+            .single();
 
-    if (error) return res.status(400).json({ error: error.message });
+        if (oldBatchError || !oldBatch) {
+            return res.status(404).json({ error: "Batch not found" });
+        }
 
-    res.json({ message: "Batch updated successfully", batch: data });
+        // Extract number part (B118 → 118)
+        const match = oldBatch.batch_name.match(/^B(\d+)/);
+        const batchNumber = match ? match[1] : "000";
+
+        // 2. Get course name
+        const { data: course, error: courseError } = await supabase
+            .from("courses")
+            .select("course_name")
+            .eq("id", course_id)
+            .single();
+
+        if (courseError || !course) {
+            return res.status(400).json({ error: "Invalid course ID" });
+        }
+
+        // 3. Format time → 09:00 → 09:00AM
+        const formatToAmPm = (time) => {
+            const [hours, minutes] = time.split(':');
+            const d = new Date();
+            d.setHours(hours, minutes);
+            return d.toLocaleTimeString("en-US", {
+                hour: "2-digit",
+                minute: "2-digit",
+                hour12: true
+            }).replace(/\s/g, "");
+        };
+
+        const formattedFrom = formatToAmPm(time_from);
+        const formattedTo = formatToAmPm(time_to);
+
+        // 4. Rebuild batch_name
+        const batch_name = `B${batchNumber}-${course.course_name.toUpperCase()}-${formattedFrom}-${formattedTo}`;
+
+        // 5. Update DB
+        const { data, error } = await supabase
+            .from("batches")
+            .update({ batch_name, duration, center, teacher, course_id, time_from, time_to })
+            .eq("batch_id", id)
+            .select();
+
+        if (error) return res.status(400).json({ error: error.message });
+
+        res.json({ message: "Batch updated successfully", batch: data });
+    } catch (err) {
+        console.error("Update batch error:", err);
+        res.status(500).json({ error: "Internal server error" });
+    }
 };
+
 
 const deleteBatch = async (req, res) => {
     const { id } = req.params;
