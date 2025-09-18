@@ -100,15 +100,23 @@ const createBatch = async (req, res) => {
 
 const getBatches = async (req, res) => {
     try {
+        // 🔥 Batches with student count
         const { data, error } = await supabase
             .from("batches")
             .select(`
-                *,
-                center_details:centers(center_id, center_name),
-                teacher_details:teachers!inner(
-                    teacher_info:users(id, name)
+                batch_id,
+                batch_name,
+                duration,
+                created_at,
+                time_from,
+                time_to,
+                center:centers(center_id, center_name),
+                teacher:teachers(
+                    teacher_id,
+                    user:users(id, name)
                 ),
-                course:courses(id, course_name, type)
+                course:courses(id, course_name, type),
+                enrollment:enrollment(batch)   -- join enrollment to count students
             `);
 
         if (error) {
@@ -116,17 +124,19 @@ const getBatches = async (req, res) => {
             return res.status(400).json({ error: error.message });
         }
 
-        // Update transformed data to use course type from courses table
+        // 🔄 Transform + add student_count
         const transformedData = data.map(batch => ({
             ...batch,
-            center_name: batch.center_details?.center_name,
-            teacher_name: batch.teacher_details?.teacher_info?.name,
+            center_name: batch.center?.center_name,
+            teacher_name: batch.teacher?.user?.name,
             course_name: batch.course?.course_name,
             course_type: batch.course?.type,
-            // Remove the nested objects
-            center_details: undefined,
-            teacher_details: undefined,
-            course: undefined
+            student_count: batch.enrollment ? batch.enrollment.length : 0, // 👈 count here
+            // cleanup nested
+            center: undefined,
+            teacher: undefined,
+            course: undefined,
+            enrollment: undefined
         }));
 
         res.json({
@@ -141,6 +151,7 @@ const getBatches = async (req, res) => {
         });
     }
 };
+
 
 const getBatchById = async (req, res) => {
     const { id } = req.params;
