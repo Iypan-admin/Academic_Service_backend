@@ -1,6 +1,6 @@
 const express = require("express");
 const { createBatch, getBatches, getBatchById, updateBatch, deleteBatch, approveStudent } = require("../controllers/batchController.js");
-const  authenticate = require("../config/authMiddleware.js");
+const authenticate = require("../config/authMiddleware.js");
 
 const router = express.Router();
 

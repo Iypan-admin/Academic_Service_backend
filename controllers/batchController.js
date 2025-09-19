@@ -296,11 +296,46 @@ const approveStudent = async (req, res) => {
     });
 
     const mailOptions = {
-        from: process.env.MAIL_USER,
+        from: `"ISML Team" <${process.env.MAIL_USER}>`,
         to: student.email,
-        subject: "🎉 ISML Registration Approved",
-        text: `Hi ${student.name},\n\nCongratulations! Your ISML registration has been approved.\n\nYour Registration Number is: ${registrationNumber}\n\nRegards,\nTeam ISML`
+        subject: "🎉 Congratulations! Your ISML Registration is Approved 🎉",
+        html: `
+    <div style="font-family: Arial, sans-serif; background:#f9f9f9; padding:20px; color:#333;">
+      <div style="max-width:600px; margin:0 auto; background:white; border-radius:10px; box-shadow:0 2px 8px rgba(0,0,0,0.1); overflow:hidden;">
+        
+        <div style="background:#2563eb; padding:20px; text-align:center; color:white;">
+          <h1 style="margin:0; font-size:24px;">Welcome to ISML 🎓</h1>
+        </div>
+        
+        <div style="padding:20px;">
+          <p style="font-size:16px;">Hi <b>${student.name}</b>,</p>
+          <p style="font-size:15px; line-height:1.6;">
+            🎉 Congratulations! Your <b>ISML Registration</b> has been successfully <span style="color:green; font-weight:bold;">approved</span>.
+          </p>
+
+          <div style="margin:20px 0; padding:15px; border:2px dashed #2563eb; border-radius:8px; text-align:center;">
+            <p style="margin:0; font-size:16px;">Your Registration Number:</p>
+            <h2 style="margin:10px 0; font-size:22px; color:#2563eb;">${registrationNumber}</h2>
+          </div>
+
+          <p style="font-size:15px;">
+            You can now access ISML’s courses and resources. We’re excited to have you onboard! 🚀
+          </p>
+          
+          <a href="https://studentportal.iypan.com/login" target="_blank"
+            style="display:inline-block; margin-top:20px; padding:12px 20px; background:#2563eb; color:white; text-decoration:none; border-radius:6px; font-size:16px;">
+            Access Your Dashboard →
+          </a>
+        </div>
+
+        <div style="background:#f1f5f9; padding:15px; text-align:center; font-size:12px; color:#555;">
+          <p style="margin:0;">Regards,<br/>Team <b>ISML</b></p>
+        </div>
+      </div>
+    </div>
+  `,
     };
+
 
     // Send email
     transporter.sendMail(mailOptions, (err, info) => {
